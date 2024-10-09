@@ -159,21 +159,27 @@ function Create-Shortcut {
     param (
         [string]$ShortcutName,
         [string]$TargetPath,
-        [string]$ShortcutPath
+        [string]$ShortcutPath,
+        [string]$WorkingDirectory
     )
     
     $WshShell = New-Object -ComObject WScript.Shell
     $Shortcut = $WshShell.CreateShortcut($ShortcutPath)
     $Shortcut.TargetPath = $TargetPath
+    $Shortcut.WorkingDirectory = $WorkingDirectory
     $Shortcut.Save()
 }
 
 # ＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞Logon Data＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜
 $filePath = ".\logondata\$env:USERNAME.ps1"
+$sourcePath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+$location = Split-Path -Path $sourcePath -Parent 
+$lnk = [System.IO.Path]::Combine([System.Environment]::GetFolderPath("Desktop"),"SAP Logon Tool.lnk"
+
 if(Test-Path -Path $filePath){
     . $filePath
 }else{
-    Create-Shortcut -ShortcutName 'SAP Logon Tool.lnk' -TargetPath ([System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName) -ShortcutPath ([System.IO.Path]::Combine([System.Environment]::GetFolderPath("Desktop"),"SAP Logon Tool.lnk"))
+    Create-Shortcut -ShortcutName 'SAP Logon Tool.lnk' -TargetPath () -ShortcutPath ())
     $null = New-Item -Path ".\logondata" -ItemType "directory" -Force 
     Set-Content -Path $filePath -Value '$logondata = New-Object System.Collections.ArrayList'
     Add-Content -Path $filePath -Value '#EndLogonData'
@@ -560,8 +566,6 @@ $username_btn.Add_SelectedIndexChanged({
     }
 })
 
-$Me = $MyInvocation.MyCommand.Source
-
 $ok_btn.Add_Click({
                         if($doA.Checked){LogonData-Add    -sname $systemname_btn.Text         -sid $systemid_btn.Text         -client $client_btn.Text         -username $username_btn.Text         -password $password_btn.Text  -buttonColor $buttonColor_btn.Text}
                     elseif($doB.Checked){LogonData-Update -sname $systemname_btn.SelectedItem -sid $systemid_btn.SelectedItem -client $client_btn.SelectedItem -username $username_btn.SelectedItem -password $password_btn.Text -passwordn $passwordn_btn.Text -buttonColor $buttonColor_btn.Text
@@ -571,7 +575,7 @@ $ok_btn.Add_Click({
 $rightPanel.Controls.add($ok_btn)
 
 $restart_btn.Add_Click({#Start-Process powershell.exe -ArgumentList "-WindowStyle Hidden -File `"$Me`" "
-                  Start-Process -FilePath "C:\SAP Logon Tool\SAP Logon Tool.lnk"
+                  Start-Process -FilePath $sourcePath
                   $form.Close()
                   $Global:shouldExit = $true
                  })
