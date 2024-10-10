@@ -91,7 +91,6 @@ function LogonData-Add{
                                         $sname = $sname + "：➢：" + $username
                                     }
                                     if($_ -match '^#End(\s)'+ $sname){
-                                        #$_ = ''
                                         ('$null = $logondata.Add(@("{0}","{1}","{2}","{3}","{4}","{5}",{6},"{7}"))' -f $sname, $sid, $client, $username, $password, $buttonColor, '($group+=1)', (Get-Date).ToString("yyyy/MM/dd")) | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString
                                         ('#End {0}' -f $sname) | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString
                                         $flg = 1
@@ -99,7 +98,7 @@ function LogonData-Add{
                                     
                                     }elseif($flg -eq 0 -and $_ -match '^#EndLogonData$'){
                                         #$_ = ''
-                                        '$group = 0' | ConvertTo-SecureString -AsPlainText -Force
+                                        '$group = 0' | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString
                                         ('$null = $logondata.Add(@("{0}","{1}","{2}","{3}","{4}","{5}",{6},"{7}"))' -f $sname, $sid, $client, $username, $password, $buttonColor, '($group+=1)', (Get-Date).ToString("yyyy/MM/dd")) | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString
                                         ('#End {0}' -f $sname) | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString
                                         '#EndLogonData' | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString
@@ -234,11 +233,10 @@ $sourcePath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileN
 $Location = (Split-Path -Path ([System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName) -Parent)
 $Lnk = [System.IO.Path]::Combine([System.Environment]::GetFolderPath("Desktop"),'SAP Logon Tool.lnk')
 if(Test-Path -Path $filePath){
-    $importSecureString = Get-Content $filePath | ConvertTo-SecureString
-    $importSecureString | ForEach-Object{
-        $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($_) 
-        $StringPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-        Invoke-Expression $StringPassword}
+    #$importSecureString = Get-Content $filePath | ConvertTo-SecureString 
+    Get-Content $filePath -Encoding UTF8 | ForEach-Object{
+        $Command = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR((ConvertTo-SecureString $_ )))
+        Invoke-Expression $Command}
     #. $filePath
 }else{
     
