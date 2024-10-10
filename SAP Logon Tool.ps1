@@ -6,7 +6,10 @@ function Open-Gui{
         [string]$username,
         [string]$password
     )
-    Start-Process "cmd.exe" "/c start sapshcut -system=$($sid) -client=$($client) -user=$($username) -pw=$($password)"
+    $flg = Open-Session -sid $sid -client $client
+    If( -not $flg -or $flg -notmatch '\(1\)$' ) {
+        Start-Process "cmd.exe" "/c start sapshcut -system=$($sid) -client=$($client) -user=$($username) -pw=$($password)"
+    }
 }
 
 function LogonData-Update{
@@ -19,24 +22,25 @@ function LogonData-Update{
         [string]$passwordn,
         [string]$buttonColor
         )
-        $Me = ".\logondata\$env:USERNAME.ps1"
+        $Me = ".\logondata\$env:USERNAME.txt"
         $Myself = Get-Content $Me
         $Myself `
-        | Foreach-Object -Process {$temp = $_.split(",")
+        | Foreach-Object -Process { $_ = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR(($_ | ConvertTo-SecureString)))
+                                    $temp = $_.split(",")
                                     $rule = '^\$null[\s]\=[\s]\$logondata.Add\(@\("{0}","{1}","{2}","{3}"' -f $sname , $sid, $client, $username, '"[\S\s]*$'
                                     if($_ -match $rule){
 
                                     # パスワード変更しない
                                         if($password -eq $passwordn){
-                                            '$null = $logondata.Add(@("{0}","{1}","{2}","{3}","{4}","{5}",{6},{7}' -f $sname, $sid, $client, $username, $passwordn, $buttonColor, '($group+=1)', $temp[7]
+                                            ('$null = $logondata.Add(@("{0}","{1}","{2}","{3}","{4}","{5}",{6},{7}' -f $sname, $sid, $client, $username, $passwordn, $buttonColor, '($group+=1)', $temp[7]) | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString
                                         }else{
                                         # パスワード変更する
                                             Password-Change -sname ($sname.Split("：➢：")[0]) -client $client -username $username -password $password -passwordn $passwordn
-                                            '$null = $logondata.Add(@("{0}","{1}","{2}","{3}","{4}","{5}",{6},"{7}"))' -f $sname, $sid, $client, $username, $passwordn, $buttonColor, '($group+=1)', (Get-Date).ToString("yyyy/MM/dd")
+                                            ('$null = $logondata.Add(@("{0}","{1}","{2}","{3}","{4}","{5}",{6},"{7}"))' -f $sname, $sid, $client, $username, $passwordn, $buttonColor, '($group+=1)', (Get-Date).ToString("yyyy/MM/dd")) | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString
                                         }
                                         $msg = (New-Object -ComObject WScript.Shell).popup("Logon Data更新完了、再起動後に反映します。",0,"Logon Data更新")
                                     }else{
-                                        $_
+                                        $_ | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString
                                     }
                                    }`
         | Set-Content $Me -Encoding utf8 
@@ -51,13 +55,14 @@ function LogonData-Remove{
         [string]$username
         )
 
-        $Me = ".\logondata\$env:USERNAME.ps1"
+        $Me = ".\logondata\$env:USERNAME.txt"
         $Myself = Get-Content $Me
         $Myself `
-        | Foreach-Object -Process {$temp = $_.split(" ")
+        | Foreach-Object -Process { $_ = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR(($_ | ConvertTo-SecureString)))
+                                    $temp = $_.split(" ")
                                     $rule = '^\$null[\s]\=[\s]\$logondata.Add\(@\("' + $sname + '","' + $sid + '","' + $client + '","' + $username + '"[\S\s]*$'
                                     if($_ -notmatch $rule ){
-                                        $_
+                                        $_ | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString
                                     }else{
                                         $msg = (New-Object -ComObject WScript.Shell).popup("Logon Data削除完了、再起動後に反映します。",0,"Logon Data削除")
                                     }
@@ -75,32 +80,33 @@ function LogonData-Add{
         [string]$password,
         [string]$buttonColor
         )
-        $Me = ".\logondata\$env:USERNAME.ps1"
-        $Myself = Get-Content $Me
+        $Me = ".\logondata\$env:USERNAME.txt"
+        $Myself = Get-Content $Me 
 
         $flg = 0
         $Myself `
-        | Foreach-Object -Process {$temp = $_.split(" ")
+        | Foreach-Object -Process { $_ = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR(($_ | ConvertTo-SecureString)))
+                                    $temp = $_.split(" ")
                                     if($sname -notmatch "：➢："){
                                         $sname = $sname + "：➢：" + $username
                                     }
                                     if($_ -match '^#End(\s)'+ $sname){
                                         #$_ = ''
-                                        '$null = $logondata.Add(@("{0}","{1}","{2}","{3}","{4}","{5}",{6},"{7}"))' -f $sname, $sid, $client, $username, $password, $buttonColor, '($group+=1)', (Get-Date).ToString("yyyy/MM/dd")
-                                        '#End {0}' -f $sname
+                                        ('$null = $logondata.Add(@("{0}","{1}","{2}","{3}","{4}","{5}",{6},"{7}"))' -f $sname, $sid, $client, $username, $password, $buttonColor, '($group+=1)', (Get-Date).ToString("yyyy/MM/dd")) | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString
+                                        ('#End {0}' -f $sname) | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString
                                         $flg = 1
                                         $msg = (New-Object -ComObject WScript.Shell).popup("【Client追加】`nLogon Data追加完了①`n再起動後に反映します。",0,"Logon Data追加")
                                     
                                     }elseif($flg -eq 0 -and $_ -match '^#EndLogonData$'){
                                         #$_ = ''
-                                        '$group = 0'
-                                        '$null = $logondata.Add(@("{0}","{1}","{2}","{3}","{4}","{5}",{6},"{7}"))' -f $sname, $sid, $client, $username, $password, $buttonColor, '($group+=1)', (Get-Date).ToString("yyyy/MM/dd")
-                                        '#End {0}' -f $sname
-                                        '#EndLogonData'
+                                        '$group = 0' | ConvertTo-SecureString -AsPlainText -Force
+                                        ('$null = $logondata.Add(@("{0}","{1}","{2}","{3}","{4}","{5}",{6},"{7}"))' -f $sname, $sid, $client, $username, $password, $buttonColor, '($group+=1)', (Get-Date).ToString("yyyy/MM/dd")) | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString
+                                        ('#End {0}' -f $sname) | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString
+                                        '#EndLogonData' | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString
                                         $msg = (New-Object -ComObject WScript.Shell).popup("【System追加】`nLogon Data追加完了②`n再起動後に反映します。",0,"Logon Data追加")
                                     
                                     }else{
-                                        $_
+                                        $_ | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString
                                     }
                                    }`
         | Set-Content $Me -Encoding utf8 
@@ -151,8 +157,8 @@ session.findById("wnd[1]/tbar[0]/btn[0]").press
 '@ -f $sname, $client, $username, $password, $passwordn, $passwordn
 
     Set-Content -Path .\pass.vbs -Value $vbsCode
-    Start-Process "wscript.exe" -ArgumentList ".\temp.vbs"
-    Remove-Item -Path ".\temp.vbs" -Force
+    Start-Process "wscript.exe" -ArgumentList ".\change.vbs"
+    Remove-Item -Path ".\change.vbs" -Force
 }
 
 function Create-Shortcut {
@@ -170,30 +176,88 @@ function Create-Shortcut {
     $Shortcut.Save()
 }
 
-# ＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞Logon Data＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜
-$filePath = ".\logondata\$env:USERNAME.ps1"
-$sourcePath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
-$location = Split-Path -Path $sourcePath -Parent 
-$lnk = [System.IO.Path]::Combine([System.Environment]::GetFolderPath("Desktop"),"SAP Logon Tool.lnk"
+function Open-Session{
+    param(
+        [string]$sid,
+        [string]$client
+    )
 
+$vbsCode = @'
+ Set SapGuiAuto = GetObject("SAPGUI")
+  If Not IsObject(SapGuiAuto) Then
+    WScript.Echo "SAP GUIを起動していません。(0)"
+    WScript.Quit
+  End If
+  
+  Set application = SapGuiAuto.GetScriptingEngine
+  If Not IsObject(application) Then
+    Set SapGuiAuto = Nothing
+    WScript.Echo "SAP GUIを起動していません。(0)"
+    WScript.Quit
+  End If
+
+  Set connections = application.Connections()
+  If Not IsObject(connections) Then
+    Set SapGuiAuto = Nothing
+    Set application = Nothing
+    WScript.Echo "SAP GUIを起動していません。(0)"
+    WScript.Quit
+  End If
+  
+  For Each connection In connections
+    Set sessions = connection.Sessions()
+    For Each session In sessions
+      If session.Busy() = vbFalse Then
+       If(session.Info().SystemName()= "{0}" and session.Info().Client()= "{1}") Then
+          session.findById("wnd[0]").iconify
+          session.findById("wnd[0]").maximize
+          WScript.Sleep 500
+          WScript.Echo "システム：" & session.Info().SystemName() & "クライアント：" & session.Info().Client() & "を開いています。(1)"
+          WScript.Quit
+       End If
+      End If
+    Next
+  Next
+
+'@ -f $sid, $client
+
+    Set-Content -Path .\show.vbs -Value $vbsCode
+    Start-Process "wscript.exe" -ArgumentList ".\show.vbs"
+    $result = & cscript.exe //Nologo ".\show.vbs"
+    Remove-Item -Path ".\show.vbs" -Force
+    Return $result
+
+}
+# ＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞Logon Data＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜
+$filePath = ".\logondata\$env:USERNAME.txt"
+$sourcePath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+$Location = (Split-Path -Path ([System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName) -Parent)
+$Lnk = [System.IO.Path]::Combine([System.Environment]::GetFolderPath("Desktop"),'SAP Logon Tool.lnk')
 if(Test-Path -Path $filePath){
-    . $filePath
+    $importSecureString = Get-Content $filePath | ConvertTo-SecureString
+    $importSecureString | ForEach-Object{
+        $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($_) 
+        $StringPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+        Invoke-Expression $StringPassword}
+    #. $filePath
 }else{
-    Create-Shortcut -ShortcutName 'SAP Logon Tool.lnk' -TargetPath () -ShortcutPath ())
-    $null = New-Item -Path ".\logondata" -ItemType "directory" -Force 
-    Set-Content -Path $filePath -Value '$logondata = New-Object System.Collections.ArrayList'
-    Add-Content -Path $filePath -Value '#EndLogonData'
-    #Copy-Item -Path ".\SAP Logon Tool.lnk" -Destination ([System.IO.Path]::Combine($env:USERPROFILE, "Desktop")) -Force
+    
+    $null = New-Item -Path ".\logondata" -ItemType "directory" -Force
+
+    '$logondata = New-Object System.Collections.ArrayList' | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString | Set-Content $filePath
+    '#EndLogonData' | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString | Add-Content $filePath
+    Create-Shortcut -ShortcutName 'SAP Logon Tool.lnk' -TargetPath $sourcePath -ShortcutPath $Lnk -WorkingDirectory $Location
 }
 
 # ＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞Layout＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜
 
 #Layout
 Add-type -AssemblyName System.Windows.Forms
+#$form.Icon = New-Object System.Drawing.Icon('C:\日次作業自動化\tool\SAP Logon Tool\old\icon.ico')
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'SAP GUI Logon Tool(Designed by jiajun.xie)'
-$form.Size = New-Object System.Drawing.Size(800,400)
+$form.Size = New-Object System.Drawing.Size(900,400)
 $form.Padding = New-Object System.Windows.Forms.Padding(10)
 $form.StartPosition = "CenterScreen"
 
@@ -208,27 +272,89 @@ $leftTitle = New-Object System.Windows.Forms.Panel
 $leftTitle.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 $leftTitle.Dock = [System.Windows.Forms.DockStyle]::Top
 $leftTitle.Width = $leftPanel.Width
-$leftTitle.Height = ($form.Height / 3.6)
-
 
 $leftTitleText = New-Object System.Windows.Forms.Label
-$leftTitleText.Text = "1.緑色、金色、青色、グレーを設定できます。`n" +"`n"+
-　　　　　　　        "2. デフォルト色は青色です。`n" +"`n"+
-　　　　　　　        "3. 赤色になると、パスワード期限切れってログオン出来なくなり、パスワードを変更してください。。`n" +"`n"+
-                      "4.作成者：jiajun.xie "
+$leftTitleText.Text = "1. 緑色、金色、青色、グレーを設定できます。`n" +
+　　　　　　　        "2. デフォルト色は青色です。`n" +
+　　　　　　　        "3. 赤色になると、パスワード期限切れってログオン出来なくなり、パスワードを変更してください。`n" +
+                      "4. パスワード変更の場合は、SAP GUI Scriptingを有効化しなければいけません。"
 $leftTitleText.Width = $leftTitle.Width
 $leftTitleText.Height = $leftTitle.Height
+$leftTitleText.ForeColor =[System.Drawing.Color]::CornflowerBlue
+$leftTitleText.Font = [System.Drawing.Font]::new("Yu Mincho Light", 8, [System.Drawing.FontStyle]::Bold)
+
 $leftTitle.Controls.Add($leftTitleText)
+$leftPanel.Controls.Add($leftTitle)
 
 #button Group
 $left = $leftPanel.Width * 0.1
 $high_left = $leftTitle.Height + 10
 
+$left = $leftPanel.Width * 0.02
+
+$exp_btn = New-Object System.Windows.Forms.Button
+$high_left += $leftPanel.Height * 0.2
+$exp_btn.Text = "Export"
+$exp_btn.Size = New-Object System.Drawing.Size (($leftPanel.Width * 0.2),($leftPanel.Height * 0.2))
+$exp_btn.Location = New-Object System.Drawing.Point(($leftPanel.Width / 2 - 100),$high_left)
+$leftPanel.Controls.Add($exp_btn)
+
+$exp_btn.Add_Click({
+    $folderBrowserDialog = New-Object System.Windows.Forms.FolderBrowserDialog
+    $folderBrowserDialog.Description = "Exportフォルダを選択してください。"
+    $folderBrowserDialog.SelectedPath = $Location
+    if ($folderBrowserDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        $selectedFolderPath = $folderBrowserDialog.SelectedPath
+        
+        $filepath = Join-Path -Path $selectedFolderPath -ChildPath "export_$env:USERNAME.txt" 
+        Set-Content -Path $filepath -Value $null -Encoding UTF8
+        Get-Content -Path ".\logondata\$env:USERNAME.txt" | ForEach-Object{
+            $_ = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR(($_ | ConvertTo-SecureString))) | Add-Content -Path $filepath -Encoding UTF8
+        }
+
+        [System.Windows.Forms.MessageBox]::Show("Export 完了: $filepath", "")
+    } else {
+    }
+
+})
+
+
+$imp_btn = New-Object System.Windows.Forms.Button
+$imp_btn.Text = "Import"
+$imp_btn.Size = New-Object System.Drawing.Size (($leftPanel.Width * 0.2),($leftPanel.Height * 0.2))
+$imp_btn.Location = New-Object System.Drawing.Point(($leftPanel.Width / 2 ),$high_left)
+
+$leftPanel.Controls.Add($imp_btn)
+
+$imp_btn.Add_Click({
+
+    # 
+    $openFileDialog = New-Object System.Windows.Forms.OpenFileDialog
+    $openFileDialog.Filter = "所有文件 (*.*)|*.*"
+    $openFileDialog.Title = "Importファイルを選択してください。"
+    $openFileDialog.FileName = "import_$env:USERNAME.txt"
+    # 
+    if ($openFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        $selectedFile = $openFileDialog.FileName
+
+        $filepath = "$Location\logondata\$env:USERNAME.txt"
+        Set-Content -Path $filepath -Value $null -Encoding UTF8
+        Get-Content -Path $selectedFile | ForEach-Object{
+            $_ | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString | Add-Content -Path $filepath -Encoding UTF8
+        }
+
+        [System.Windows.Forms.MessageBox]::Show("Importファイルは: $selectedFile", "Import")
+    } else {
+    }
+
+
+})
+
+$high_left = $leftTitle.Height + 30
 $lastlogon =@("","","","","","","","")
 foreach ($logon in $logondata){
 
     $button = New-Object System.Windows.Forms.Button
-    #$button = [ThreeDButton]::new()
     if($logon[6] -eq 1){
         $left = $leftPanel.Width * 0.02
         $high_left += $leftPanel.Height * 0.25
@@ -237,7 +363,8 @@ foreach ($logon in $logondata){
         $buttonTitle.Size = New-Object System.Drawing.Size($leftPanel.Width,($leftPanel.Height * 0.15))
         $buttonTitle.Location = New-Object System.Drawing.Point($left,$high_left)
         $buttonTitle.BackColor = [System.Drawing.Color]::AliceBlue
-        
+        $buttonTitle.ForeColor =[System.Drawing.Color]::LightCoral
+        $buttonTitle.Font = [System.Drawing.Font]::new("Yu Mincho Light", 10, [System.Drawing.FontStyle]::Underline)
         
         $leftPanel.Controls.add($buttonTitle)
         $high_left += $leftPanel.Height * 0.2
@@ -298,20 +425,23 @@ $rightTitle = New-Object System.Windows.Forms.Panel
 $rightTitle.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 $rightTitle.Dock = [System.Windows.Forms.DockStyle]::Top
 $rightTitle.Width = $rightPanel.Width
-$rightTitle.Height = ($form.Height / 3.6)
-
 $rightTitleText = New-Object System.Windows.Forms.Label
-$rightTitleText.Text = "1.パスワード更新について、システムにパスワード更新する場合は必ず更新してください。`n" +"`n"+
-                       "2.追加、更新、削除いずれか実施した後、当ツールを再起動してください。`n"+"`n"+
-                       "3.作成者：jiajun.xie "
+$rightTitleText.Text = "1. 追加、削除は直ぐに反映しません、再起動後に反映します。`n"+
+                       "2. 単一Logon Dataを追加、削除の場合、対象項目を入力して、確認ボタンと再起動ボタンを押すと、反映出来ます`n" +
+                       "3. 複数の場合、対象項目を入力して、確認ボタンをして又繰り返して、最後まとめて再起動ボタンを押すと、一括反映出来ます。`n"+
+                       "4. 更新ボタンを押すと、自動再起動しますので、即時反映出来ます。`n"
 $rightTitleText.Width = $rightTitle.Width
 $rightTitleText.Height = $rightTitle.Height
+
+$rightTitleText.ForeColor =[System.Drawing.Color]::CornflowerBlue
+$rightTitleText.Font = [System.Drawing.Font]::new("Yu Mincho Light", 8, [System.Drawing.FontStyle]::Bold)
+
 $rightTitle.Controls.Add($rightTitleText)
 $rightPanel.Controls.Add($rightTitle)
 
 #button Group
 $left = $rightPanel.Width * 0.1
-$high_right = $rightTitle.Height + 10
+$high_right = $rightTitle.Height + 30
 
 $high_right += $rightPanel.Height * 0.25
 $dol = New-Object System.Windows.Forms.Label
@@ -331,7 +461,6 @@ $doB.Text = "変更"
 $doB.Location = New-Object System.Drawing.Point(($rightPanel.Width * 0.5),($high_right - 3))
 $doB.Size = New-Object System.Drawing.Size(($rightPanel.Width * 0.2),($rightTitle.Height * 0.2))
 $doB.Checked = $true
-
 $rightPanel.Controls.add($doB)
 
 $doC = New-Object System.Windows.Forms.RadioButton
@@ -416,6 +545,8 @@ $passwordn_btn = New-Object System.Windows.Forms.TextBox
 $passwordn_btn.Location = New-Object System.Drawing.Point(($rightPanel.Width * 0.3),($high_right - 3))
 $passwordn_btn.Size = New-Object System.Drawing.Size(($rightPanel.Width * 0.65),($rightTitle.Height * 0.2))
 $passwordn_btn.BackColor = [System.Drawing.Color]::LightYellow
+$passwordn_btn.Text = '******'
+$passwordn_btn.ForeColor = [System.Drawing.Color]::Red
 
 $rightPanel.Controls.add($passwordn_lab)
 $rightPanel.Controls.add($passwordn_btn)
@@ -442,12 +573,13 @@ $high_right += $rightPanel.Height * 0.3
 $ok_btn = New-Object System.Windows.Forms.Button
 $ok_btn.Text =　"確定"
 $ok_btn.Location = New-Object System.Drawing.Point(($rightPanel.Width *0.3),$high_right)
-$ok_btn.Size = New-Object System.Drawing.Size (($rightPanel.Width *0.3),($rightPanel.Height *0.3))
+$ok_btn.Size = New-Object System.Drawing.Size (($rightPanel.Width *0.2),($rightPanel.Height *0.3))
 
 $restart_btn = New-Object System.Windows.Forms.Button
 $restart_btn.Text =　"再起動"
 $restart_btn.Location = New-Object System.Drawing.Point(($rightPanel.Width *0.65),$high_right)
-$restart_btn.Size = New-Object System.Drawing.Size (($rightPanel.Width *0.3),($rightPanel.Height *0.3))
+$restart_btn.Size = New-Object System.Drawing.Size (($rightPanel.Width *0.2),($rightPanel.Height *0.3))
+
 
 # ＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞Default Value＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜
 $snm_options = @()
@@ -566,6 +698,7 @@ $username_btn.Add_SelectedIndexChanged({
     }
 })
 
+
 $ok_btn.Add_Click({
                         if($doA.Checked){LogonData-Add    -sname $systemname_btn.Text         -sid $systemid_btn.Text         -client $client_btn.Text         -username $username_btn.Text         -password $password_btn.Text  -buttonColor $buttonColor_btn.Text}
                     elseif($doB.Checked){LogonData-Update -sname $systemname_btn.SelectedItem -sid $systemid_btn.SelectedItem -client $client_btn.SelectedItem -username $username_btn.SelectedItem -password $password_btn.Text -passwordn $passwordn_btn.Text -buttonColor $buttonColor_btn.Text
@@ -574,7 +707,7 @@ $ok_btn.Add_Click({
                  })
 $rightPanel.Controls.add($ok_btn)
 
-$restart_btn.Add_Click({#Start-Process powershell.exe -ArgumentList "-WindowStyle Hidden -File `"$Me`" "
+$restart_btn.Add_Click({
                   Start-Process -FilePath $sourcePath
                   $form.Close()
                   $Global:shouldExit = $true
@@ -586,9 +719,8 @@ $form.Controls.Add($rightPanel)
 $form.Add_Resize({
     $leftPanel.Width = ($form.Width / 5*2.1 - 10) 
     $rightPanel.Width = ($form.Width / 5*2.9 - 30)
-    #$leftTitle.Height = ($form.Height / 3.7)
-    #$rightTitle.Height = ($form.Height / 3.7)
 })
+
 $form.Height = [Math]::Max($high_left , $high_right)+ 100
 
 $null=$form.ShowDialog()
