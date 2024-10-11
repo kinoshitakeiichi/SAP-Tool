@@ -1,4 +1,4 @@
-# ＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞Funcation Group＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜
+﻿# ＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞＞Funcation Group＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜＜
 function Open-Gui{
     param(
         [string]$sid,
@@ -233,11 +233,9 @@ $sourcePath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileN
 $Location = (Split-Path -Path ([System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName) -Parent)
 $Lnk = [System.IO.Path]::Combine([System.Environment]::GetFolderPath("Desktop"),'SAP Logon Tool.lnk')
 if(Test-Path -Path $filePath){
-    #$importSecureString = Get-Content $filePath | ConvertTo-SecureString 
-    Get-Content $filePath -Encoding UTF8 | ForEach-Object{
-        $Command = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR((ConvertTo-SecureString $_ )))
+    Get-Content $filePath -Encoding UTF8 | ConvertTo-SecureString | ForEach-Object{
+        $Command = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($_ ))
         Invoke-Expression $Command}
-    #. $filePath
 }else{
     
     $null = New-Item -Path ".\logondata" -ItemType "directory" -Force
